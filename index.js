@@ -125,7 +125,7 @@ const DATA_DIR = join(DSH_HOME, 'breezetts-dsh');
 const SETTINGS_FILE = join(DATA_DIR, 'settings.json');
 const MAX_PREVIEW_BYTES = 5_000_000;
 /** Fields the settings dialog owns; everything else stays in the patch. */
-const EDITABLE_KEYS = ['apiKey', 'apiKeySource', 'voiceId', 'speed', 'instructions', 'languageCode', 'modelId', 'avatarUrl', 'avatarData', 'engine', 'cliPath', 'readMode', 'companionEnabled', 'companionTrigger', 'companionWorkMinutes', 'companionInterval', 'companionCooldownMinutes', 'mealReminder'];
+const EDITABLE_KEYS = ['apiKey', 'apiKeySource', 'voiceId', 'speed', 'instructions', 'languageCode', 'modelId', 'avatarUrl', 'avatarData', 'voiceAvatars', 'engine', 'cliPath', 'readMode', 'companionEnabled', 'companionTrigger', 'companionWorkMinutes', 'companionInterval', 'companionCooldownMinutes', 'mealReminder'];
 const DEBUG_FILE = fileURLToPath(new URL('./debug.log', import.meta.url));
 
 /**

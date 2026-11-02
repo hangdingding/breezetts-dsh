@@ -1082,8 +1082,10 @@ function buildSpeakTool(state) {
   return {
     name: 'breeze_speak',
     description:
-      '用 Breeze 语音把一段文字念出来。用户要求特定音色、情绪、语速，或说“用 XX 音色念这段”时调用。' +
-      '生成后插件会在回复结束后自动播放，不要自己再复述一遍文字。voice_id 可省略，默认用插件当前音色。',
+      '用 Breeze 语音把一段文字念出来。当用户说“讲/念/读/说给我听/想听/用语音”，' +
+      '或提到累了、想听点东西时，优先调用本工具把内容念出来，而不是只回文字。' +
+      '也可以指定音色、情绪和语速。生成后插件会自动播放，文字回复保持简短，不要复述全文。' +
+      'voice_id 可省略，默认用插件当前音色。',
     parameters: {
       type: 'object',
       additionalProperties: false,

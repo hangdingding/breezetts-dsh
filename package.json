@@ -1,6 +1,6 @@
 {
   "name": "breezetts-dsh",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Official BreezeTTS plugin for DeepSeek Harness — read replies aloud, powered by Breeze CLI with the Breeze API as fallback.",
   "type": "module",

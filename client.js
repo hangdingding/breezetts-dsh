@@ -2097,7 +2097,7 @@ window.__ModuleLoader__.load({
           const response = await fetch(CONFIG_ROUTE, {
             method: 'POST',
             headers: { 'content-type': 'application/json', 'x-breeze-client': CLIENT_VERSION },
-            body: JSON.stringify({ voiceId: config.voiceId, avatarData: dataUrl }),
+            body: JSON.stringify({ voiceId: config ? config.voiceId : '', avatarData: dataUrl }),
           });
           const data = await response.json();
           if (!response.ok) throw new Error(data.error || t('settings.loadFailed'));
@@ -2108,7 +2108,7 @@ window.__ModuleLoader__.load({
         } finally {
           if (event.target) event.target.value = '';
         }
-      }, [config.voiceId, t]);
+      }, [config, t]);
 
       const changeEngine = React.useCallback(async (engine) => {
         setError('');

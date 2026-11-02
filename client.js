@@ -1508,7 +1508,7 @@ window.__ModuleLoader__.load({
       if (info.hasAvatar && !failed) {
         return h('img', {
           className: 'bv_avatar',
-          src: `${AVATAR_DATA}?voice=${encodeURIComponent(info.voiceId || '')}`,
+          src: `${AVATAR_ROUTE}?voice=${encodeURIComponent(info.voiceId || '')}`,
           alt: info.name,
           draggable: false,
           style: box,

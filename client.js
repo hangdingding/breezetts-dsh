@@ -36,6 +36,7 @@ window.__ModuleLoader__.load({
     const CLI_LOGIN_ROUTE = '/breezetts-dsh/cli/login';
     const CLI_INSTALL_ROUTE = '/breezetts-dsh/cli/install';
     const CLI_LOGOUT_ROUTE = '/breezetts-dsh/cli/logout';
+    const CLI_CACHE = 'breezetts-dsh.cli.cache';
     const COMPANION_ROUTE = '/breezetts-dsh/companion';
     const COMPANION_EVAL_ROUTE = '/breezetts-dsh/companion/evaluate';
     const COMPANION_MEAL_ROUTE = '/breezetts-dsh/companion/meal';
@@ -99,6 +100,7 @@ window.__ModuleLoader__.load({
       'cli.installConnect': '安装并连接',
       'cli.connected': '已连接',
       'cli.working': '处理中…',
+      'cli.checking': '读取中…',
       'cli.starting': '正在启动登录…',
       'cli.installing': '正在安装 Breeze CLI…',
       'cli.browser': '已打开浏览器，请在浏览器里完成授权',
@@ -219,6 +221,7 @@ window.__ModuleLoader__.load({
       'cli.installConnect': 'Install and connect',
       'cli.connected': 'Connected',
       'cli.working': 'Working…',
+      'cli.checking': 'Checking…',
       'cli.starting': 'Starting sign-in…',
       'cli.installing': 'Installing Breeze CLI…',
       'cli.browser': 'Browser opened — finish authorization there',
@@ -652,6 +655,16 @@ window.__ModuleLoader__.load({
         out += sentence;
       }
       return (out || text).slice(0, 120);
+    }
+
+    /** Last known CLI status, so the card does not flash "not installed". */
+    function readCliCache() {
+      try {
+        const raw = window.localStorage.getItem(CLI_CACHE);
+        return raw === null ? null : JSON.parse(raw);
+      } catch {
+        return null;
+      }
     }
 
     /** Ask the Host to open a Breeze link in the system browser. */
@@ -1883,7 +1896,7 @@ window.__ModuleLoader__.load({
       const [designNote, setDesignNote] = React.useState('');
       const [designPlaying, setDesignPlaying] = React.useState('');
       const [switching, setSwitching] = React.useState(false);
-      const [cli, setCli] = React.useState(null);
+      const [cli, setCli] = React.useState(readCliCache);
       const [cliBusy, setCliBusy] = React.useState(false);
       const [cliNote, setCliNote] = React.useState('');
       const cliPollRef = React.useRef(null);
@@ -1912,7 +1925,14 @@ window.__ModuleLoader__.load({
             headers: { 'x-breeze-client': CLIENT_VERSION },
           });
           const data = await response.json();
-          if (response.ok) setCli(data);
+          if (response.ok) {
+            setCli(data);
+            try {
+              window.localStorage.setItem(CLI_CACHE, JSON.stringify(data));
+            } catch {
+              // Cache is optional.
+            }
+          }
           return data;
         } catch {
           return null;
@@ -2461,12 +2481,14 @@ window.__ModuleLoader__.load({
                       type: 'button',
                       className: 'bv_primary bv_cliBtn',
                       onClick: connectCli,
-                      disabled: cliBusy,
+                      disabled: cliBusy || cli === null,
                     }, cliBusy
                       ? t('cli.working')
-                      : cli && cli.installed
-                        ? t('cli.connect')
-                        : t('cli.installConnect')),
+                      : cli === null
+                        ? t('cli.checking')
+                        : cli.installed
+                          ? t('cli.connect')
+                          : t('cli.installConnect')),
                   cli && cli.loggedIn
                     ? h('button', {
                       type: 'button',

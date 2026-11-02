@@ -47,6 +47,8 @@ const DEFAULTS = Object.freeze({
   instructions: '',
   // Optional image (http/https) shown as the voice avatar; empty = monogram.
   avatarUrl: '',
+  avatarData: '',
+  voiceAvatars: {},
   speed: 1,
   maxChars: 2000,
   timeoutMs: 120000,
@@ -123,7 +125,7 @@ const DATA_DIR = join(DSH_HOME, 'breezetts-dsh');
 const SETTINGS_FILE = join(DATA_DIR, 'settings.json');
 const MAX_PREVIEW_BYTES = 5_000_000;
 /** Fields the settings dialog owns; everything else stays in the patch. */
-const EDITABLE_KEYS = ['apiKey', 'apiKeySource', 'voiceId', 'speed', 'instructions', 'languageCode', 'modelId', 'avatarUrl', 'engine', 'cliPath', 'readMode', 'companionEnabled', 'companionTrigger', 'companionWorkMinutes', 'companionInterval', 'companionCooldownMinutes', 'mealReminder'];
+const EDITABLE_KEYS = ['apiKey', 'apiKeySource', 'voiceId', 'speed', 'instructions', 'languageCode', 'modelId', 'avatarUrl', 'avatarData', 'engine', 'cliPath', 'readMode', 'companionEnabled', 'companionTrigger', 'companionWorkMinutes', 'companionInterval', 'companionCooldownMinutes', 'mealReminder'];
 const DEBUG_FILE = fileURLToPath(new URL('./debug.log', import.meta.url));
 
 /**
@@ -314,11 +316,14 @@ function resolveSettings(config) {
   const settings = { ...DEFAULTS };
   for (const key of [
     'protocol', 'baseUrl', 'voiceId', 'apiKey', 'modelId', 'languageCode',
-    'outputFormat', 'instructions', 'endpoint', 'model', 'voice', 'avatarUrl',
+    'outputFormat', 'instructions', 'endpoint', 'model', 'voice', 'avatarUrl', 'avatarData',
     'engine', 'cliPath', 'readMode', 'companionTrigger',
   ]) {
     if (typeof raw[key] === 'string') settings[key] = raw[key].trim();
   }
+  settings.voiceAvatars = raw.voiceAvatars && typeof raw.voiceAvatars === 'object' && !Array.isArray(raw.voiceAvatars)
+    ? { ...raw.voiceAvatars }
+    : {};
   if (settings.protocol !== 'openai') settings.protocol = 'breezeblue';
   if (!['auto', 'cli', 'http'].includes(settings.engine)) settings.engine = 'auto';
   if (!['full', 'summary'].includes(settings.readMode)) settings.readMode = 'summary';
@@ -1632,7 +1637,7 @@ function handleHealth(settings, req, res) {
   writeJson(res, 200, {
     ok: true,
     protocol: settings.protocol,
-    hasAvatar: hasAvatar(settings),
+    hasAvatar: hasAvatar(settings, settings.voiceId),
     endpoint: settings.protocol === 'openai'
       ? settings.endpoint
       : `${trimSlash(settings.baseUrl)}/v1/text-to-speech/${settings.voiceId || '{voice_id}'}`,
@@ -1745,7 +1750,7 @@ async function publicConfig(settings) {
     languageCode: settings.languageCode,
     modelId: settings.modelId,
     avatarUrl: settings.avatarUrl,
-    hasAvatar: hasAvatar(settings),
+    hasAvatar: hasAvatar(settings, settings.voiceId),
     hasApiKey: settings.apiKey !== '',
     apiKeyHint: settings.apiKey === '' ? '' : `••••${settings.apiKey.slice(-4)}`,
     streaming: settings.protocol === 'breezeblue' && settings.apiKey !== '',
@@ -1831,6 +1836,28 @@ async function handleConfig(state, req, res) {
       return;
     }
     next.languageCode = language;
+  }
+  if (payload.avatarData !== undefined) {
+    const data = String(payload.avatarData);
+    if (data !== '' && !/^data:image\/(png|jpeg|webp);base64,/.test(data)) {
+      writeJson(res, 400, { error: 'avatarData 必须是 png/jpeg/webp 的 data URL' });
+      return;
+    }
+    if (data.length > 4 * 1024 * 1024) {
+      writeJson(res, 400, { error: '头像图片不能超过 3MB' });
+      return;
+    }
+    if (payload.voiceId !== undefined) {
+      const voiceId = String(payload.voiceId);
+      if (!/^voc_[A-Za-z0-9]{6,}$/.test(voiceId)) {
+        writeJson(res, 400, { error: 'voiceId 不合法' });
+        return;
+      }
+      next.voiceAvatars = { ...(next.voiceAvatars || {}) };
+      next.voiceAvatars[voiceId] = data;
+    } else {
+      next.avatarData = data;
+    }
   }
   if (payload.avatarUrl !== undefined) {
     const avatar = String(payload.avatarUrl).trim();
@@ -1990,8 +2017,9 @@ function sendPreview(res, type, body) {
  * @param settings - resolved plugin settings.
  * @returns true when the browser can request an image.
  */
-function hasAvatar(settings) {
-  return settings.avatarUrl !== '' || existsSync(BUILTIN_AVATAR);
+function hasAvatar(settings, voiceId) {
+  if (voiceId && settings.voiceAvatars && typeof settings.voiceAvatars[voiceId] === 'string' && settings.voiceAvatars[voiceId] !== '') return true;
+  return settings.avatarData !== '' || settings.avatarUrl !== '' || existsSync(BUILTIN_AVATAR);
 }
 
 /**
@@ -2023,7 +2051,7 @@ async function handleVoice(settings, req, res) {
     voiceId: settings.voiceId,
     name,
     description,
-    hasAvatar: hasAvatar(settings),
+    hasAvatar: hasAvatar(settings, settings.voiceId),
     streaming: settings.protocol === 'breezeblue' && settings.apiKey !== '',
     hasApiKey: settings.apiKey !== '',
     canSpeak: settings.apiKey !== '' || useCli(settings),
@@ -2044,6 +2072,20 @@ async function handleVoice(settings, req, res) {
  * @param res - HTTP response.
  */
 async function handleAvatar(settings, req, res) {
+  const voiceId = new URL(req.url, 'http://localhost').searchParams.get('voice') || '';
+  const perVoice = voiceId !== '' && settings.voiceAvatars ? settings.voiceAvatars[voiceId] : undefined;
+  const embedded = typeof perVoice === 'string' && perVoice !== '' ? perVoice : settings.avatarData;
+  if (typeof embedded === 'string' && embedded.startsWith('data:image/')) {
+    const match = /^data:(image\/(?:png|jpeg|webp));base64,(.+)$/s.exec(embedded);
+    if (match) {
+      try {
+        sendAvatar(res, match[1], Buffer.from(match[2], 'base64'), 'no-cache');
+        return;
+      } catch {
+        // Fall through to the next source.
+      }
+    }
+  }
   const source = settings.avatarUrl;
   if (source === '') {
     try {

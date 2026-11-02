@@ -115,6 +115,7 @@ window.__ModuleLoader__.load({
       'settings.keyMissing': '还没有填写，粘贴 brz_ 开头的密钥',
       'settings.voice': '音色',
       'settings.readMode': '朗读内容',
+      'settings.avatar': '更换头像',
       'settings.getKey': '获取 API Key ↗',
       'settings.readFull': '朗读全部',
       'settings.readSummary': '朗读概要',
@@ -236,6 +237,7 @@ window.__ModuleLoader__.load({
       'settings.keyMissing': 'Not set — paste the brz_ key',
       'settings.voice': 'Voice',
       'settings.readMode': 'Read aloud',
+      'settings.avatar': 'Change avatar',
       'settings.getKey': 'Get an API key ↗',
       'settings.readFull': 'Everything',
       'settings.readSummary': 'Summary',
@@ -402,6 +404,7 @@ window.__ModuleLoader__.load({
       '.bv_keyRow{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap}',
       '.bv_keyField{flex:1 1 240px;min-width:0}',
       '.bv_keyInputRow{display:flex;align-items:center;gap:8px}',
+      '.bv_fieldHeadActions{display:flex;align-items:center;gap:8px}',
       '.bv_fieldHead{display:flex;align-items:center;justify-content:space-between;gap:8px}',
       '.bv_designBtn{display:inline-flex;align-items:center;height:28px;padding:0 12px;border:none;border-radius:999px;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}',
       '.bv_designBtn:hover{opacity:.9}',
@@ -655,6 +658,34 @@ window.__ModuleLoader__.load({
         out += sentence;
       }
       return (out || text).slice(0, 120);
+    }
+
+    /** Downscale a picked image to a 256px square PNG data URL. */
+    function downscaleImage(file) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const image = new Image();
+        image.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const context = canvas.getContext('2d');
+            const side = Math.min(image.width, image.height);
+            context.drawImage(image, (image.width - side) / 2, (image.height - side) / 2, side, side, 0, 0, 256, 256);
+            URL.revokeObjectURL(url);
+            resolve(canvas.toDataURL('image/png'));
+          } catch (error) {
+            URL.revokeObjectURL(url);
+            reject(error);
+          }
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error('image'));
+        };
+        image.src = url;
+      });
     }
 
     /** Last known CLI status, so the card does not flash "not installed". */
@@ -1017,7 +1048,7 @@ window.__ModuleLoader__.load({
 
     /** Voice display metadata shared by every button and the player chip. */
     const voiceInfo = {
-      state: { loaded: false, name: '', hasAvatar: false, streaming: true, hasApiKey: true, canSpeak: true, readMode: 'summary', companionEnabled: true, companionTrigger: 'work', companionWorkMinutes: 45, companionInterval: 8, companionCooldownMinutes: 30, mealReminder: true },
+      state: { loaded: false, voiceId: '', name: '', hasAvatar: false, streaming: true, hasApiKey: true, canSpeak: true, readMode: 'summary', companionEnabled: true, companionTrigger: 'work', companionWorkMinutes: 45, companionInterval: 8, companionCooldownMinutes: 30, mealReminder: true },
       listeners: new Set(),
       set(next) {
         this.state = next;
@@ -1045,6 +1076,7 @@ window.__ModuleLoader__.load({
           voiceInfo.set({
             loaded: true,
             name: typeof data.name === 'string' ? data.name : '',
+            voiceId: data.voiceId || '',
             hasAvatar: data.hasAvatar === true,
             streaming: data.streaming !== false,
             hasApiKey: data.hasApiKey !== false,
@@ -1059,7 +1091,7 @@ window.__ModuleLoader__.load({
           });
         })
         .catch(() => {
-          voiceInfo.set({ loaded: true, name: '', hasAvatar: false, streaming: true, hasApiKey: true, canSpeak: true, readMode: 'summary', companionEnabled: true, companionTrigger: 'work', companionWorkMinutes: 45, companionInterval: 8, companionCooldownMinutes: 30, mealReminder: true });
+          voiceInfo.set({ loaded: true, voiceId: '', name: '', hasAvatar: false, streaming: true, hasApiKey: true, canSpeak: true, readMode: 'summary', companionEnabled: true, companionTrigger: 'work', companionWorkMinutes: 45, companionInterval: 8, companionCooldownMinutes: 30, mealReminder: true });
         });
       return voiceRequest;
     }
@@ -1067,7 +1099,7 @@ window.__ModuleLoader__.load({
     /** Reload voice metadata after the settings dialog changes it. */
     function refreshVoiceInfo() {
       voiceRequest = null;
-      voiceInfo.set({ loaded: false, name: '', hasAvatar: false, streaming: true, hasApiKey: true, canSpeak: true, readMode: 'summary', companionEnabled: true, companionTrigger: 'work', companionWorkMinutes: 45, companionInterval: 8, companionCooldownMinutes: 30, mealReminder: true });
+      voiceInfo.set({ loaded: false, voiceId: '', name: '', hasAvatar: false, streaming: true, hasApiKey: true, canSpeak: true, readMode: 'summary', companionEnabled: true, companionTrigger: 'work', companionWorkMinutes: 45, companionInterval: 8, companionCooldownMinutes: 30, mealReminder: true });
       void loadVoiceInfo();
     }
 
@@ -1476,7 +1508,7 @@ window.__ModuleLoader__.load({
       if (info.hasAvatar && !failed) {
         return h('img', {
           className: 'bv_avatar',
-          src: AVATAR_DATA,
+          src: `${AVATAR_DATA}?voice=${encodeURIComponent(info.voiceId || '')}`,
           alt: info.name,
           draggable: false,
           style: box,
@@ -1897,6 +1929,7 @@ window.__ModuleLoader__.load({
       const [designPlaying, setDesignPlaying] = React.useState('');
       const [switching, setSwitching] = React.useState(false);
       const [cli, setCli] = React.useState(readCliCache);
+      const avatarInput = React.useRef(null);
       const [cliBusy, setCliBusy] = React.useState(false);
       const [cliNote, setCliNote] = React.useState('');
       const cliPollRef = React.useRef(null);
@@ -2054,6 +2087,28 @@ window.__ModuleLoader__.load({
           setError(failure instanceof Error ? failure.message : t('companion.failed'));
         }
       }, [config, t]);
+
+      const changeAvatar = React.useCallback(async (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        setError('');
+        try {
+          const dataUrl = await downscaleImage(file);
+          const response = await fetch(CONFIG_ROUTE, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-breeze-client': CLIENT_VERSION },
+            body: JSON.stringify({ voiceId: config.voiceId, avatarData: dataUrl }),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || t('settings.loadFailed'));
+          setConfig(data);
+          refreshVoiceInfo();
+        } catch (failure) {
+          setError(failure instanceof Error ? failure.message : t('settings.loadFailed'));
+        } finally {
+          if (event.target) event.target.value = '';
+        }
+      }, [config.voiceId, t]);
 
       const changeEngine = React.useCallback(async (engine) => {
         setError('');
@@ -2607,9 +2662,22 @@ h('div', { className: 'bv_invite' },
             h('div', { className: 'bv_field' },
               h('div', { className: 'bv_fieldHead' },
                 h('span', { className: 'bv_fieldLabel' }, t('settings.voice')),
-                config.hasApiKey
-                  ? h('button', { type: 'button', className: 'bv_designBtn', onClick: openDesign }, t('design.new'))
-                  : null),
+                h('div', { className: 'bv_fieldHeadActions' },
+                  h('button', {
+                    type: 'button',
+                    className: 'bv_designBtn',
+                    onClick: () => { if (avatarInput.current) avatarInput.current.click(); },
+                  }, t('settings.avatar')),
+                  h('input', {
+                    ref: avatarInput,
+                    type: 'file',
+                    accept: 'image/*',
+                    style: { display: 'none' },
+                    onChange: changeAvatar,
+                  }),
+                  config.hasApiKey
+                    ? h('button', { type: 'button', className: 'bv_designBtn', onClick: openDesign }, t('design.new'))
+                    : null)),
               config.voiceName
                 ? h('div', { className: 'bv_current' },
                   h(Avatar, { size: 36, info: { name: config.voiceName, hasAvatar: false } }),

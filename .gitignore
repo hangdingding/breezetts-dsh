@@ -5,3 +5,6 @@ debug.log
 *.zip
 node_modules/
 .DS_Store
+
+# local docs, not published
+blog/

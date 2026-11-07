@@ -26,7 +26,7 @@ window.__ModuleLoader__.load({
     /** Breeze rejects single requests above 1000 characters by default. */
     const CHUNK_LIMIT = 800;
     /** Bumped on every delivery so the Host log identifies the running page. */
-    const CLIENT_VERSION = '36';
+    const CLIENT_VERSION = '37';
     const STREAM_ROUTE = '/breezetts-dsh/stream';
     const CONFIG_ROUTE = '/breezetts-dsh/config';
     const VOICES_ROUTE = '/breezetts-dsh/voices';
@@ -318,8 +318,8 @@ window.__ModuleLoader__.load({
       '.bv_stop:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-secondary)}',
       '.bv_stop svg{width:15px;height:15px}',
       '.bv_stop:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}',
-      '.bv_bar{display:flex;justify-content:center;align-items:center;gap:8px;margin:6px auto 0}',
-      '.bv_auto{display:inline-flex;align-items:center;gap:6px;box-sizing:border-box;height:28px;padding:0 10px;border:.5px solid var(--dsw-alias-border-l4);border-radius:999px;background:0 0;color:var(--dsw-alias-label-tertiary);font-family:inherit;font-size:12px;line-height:18px;cursor:pointer}',
+      '.bv_bar{display:flex;justify-content:center;align-items:center;gap:8px;margin:6px auto 0;flex-wrap:nowrap}',
+      '.bv_auto{display:inline-flex;align-items:center;gap:6px;box-sizing:border-box;height:28px;padding:0 10px;white-space:nowrap;flex:none;border:.5px solid var(--dsw-alias-border-l4);border-radius:999px;background:0 0;color:var(--dsw-alias-label-tertiary);font-family:inherit;font-size:12px;line-height:18px;cursor:pointer}',
       '.bv_auto:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-secondary)}',
       '.bv_auto[aria-checked="true"]{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-label-secondary)}',
       '.bv_auto:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}',
